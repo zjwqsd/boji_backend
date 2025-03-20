@@ -147,20 +147,20 @@ def login(login_request: UserLoginRequest,db: Session = Depends(get_db)):
 
 # 🔹 重置密码 API
 @router.post("/reset-password", response_model=dict)
-def reset_password(request: ResetPasswordRequest, db: Session = Depends(get_db)):
+def reset_password(reset_request: ResetPasswordRequest, request:Request,db: Session = Depends(get_db)):
     # 1️⃣ 验证邮箱验证码
-    if not verify_email_code(request.email, request.emailcode):
+    if not verify_email_code(reset_request.email, reset_request.emailcode,request):
         raise HTTPException(status_code=400, detail="重置密码失败：验证码错误")
 
     # 2️⃣ 查找用户
-    user = db.query(User).filter(User.email == request.email).first()
+    user = db.query(User).filter(User.email == reset_request.email).first()
     
     
     if not user:
         raise HTTPException(status_code=400, detail="重置密码失败：用户不存在")
 
     # 3️⃣ 更新密码（哈希加密）
-    user.password = hash_password(request.newpassword)
+    user.password = hash_password(reset_request.newpassword)
     db.commit()
 
     return {"message": "密码已重置"}
