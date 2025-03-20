@@ -9,22 +9,26 @@ from sqlalchemy.orm import Session
 import random
 import string
 from app.config import SECRET_KEY, ACCESS_TOKEN_EXPIRE_MINUTES, ALGORITHM
-from app.config import REDIS_HOST, REDIS_PORT, REDIS_DB
+# from app.config import REDIS_HOST, REDIS_PORT, REDIS_DB
 from app.config import EMAIL_SENDER, EMAIL_PASSWORD, SMTP_SERVER, SMTP_PORT
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-import redis
-redis_client = redis.StrictRedis(host=REDIS_HOST, port=REDIS_PORT, db=REDIS_DB, decode_responses=True)
+from fastapi import  Depends, Request
+import redis.asyncio as redis
+from app.dependencies import get_redis
+# email_verification_codes = {}
 
 # 生成验证码（生产环境请发送邮件）
-def generate_email_code(email: str):
+async def generate_email_code(email: str, request: Request) -> bool:
     import random
     code = random.randint(100000, 999999)
     print(code)
     # 发送邮件
     # email_verification_codes[email] = code
-    redis_client.setex(f"email_code:{email}", 300, code)  # 5 分钟后自动删除
+    redis_client = await get_redis(request)
+    await redis_client.setex(f"email_code:{email}", 300, code)  # 5 分钟后自动删除
+
     subject = "【您的验证码】请勿泄露"
     content = f"""
     <html>
@@ -44,9 +48,11 @@ def generate_email_code(email: str):
     msg.attach(MIMEText(content, "html"))
     try:
         # 连接 SMTP 服务器
+        print(f"📧 正在连接邮件服务器 {SMTP_SERVER}...")
         server = smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT)  # 使用 SSL 连接
+        print(f"📧 正在登录邮箱 {EMAIL_SENDER}...")
         server.login(EMAIL_SENDER, EMAIL_PASSWORD)
-
+        print(f"📧 正在发送邮件验证码到 {email}...")
         # 发送邮件
         response = server.sendmail(EMAIL_SENDER, email, msg.as_string())
 
@@ -66,10 +72,13 @@ def generate_email_code(email: str):
     
 
 # 验证邮箱验证码
-def verify_email_code(email: str, code: int) -> bool:
+async def verify_email_code(email: str, code: int,request:Request) -> bool:
+    redis_client = await get_redis(request )
     stored_code = redis_client.get(f"email_code:{email}")
+    # stored_code = email_verification_codes.get(email)
     if stored_code and stored_code == code:
-        redis_client.delete(f"email_code:{email}")  # 验证成功后删除
+        await redis_client.delete(f"email_code:{email}")  # 验证成功后删除
+        # del email_verification_codes[email]
         return True
     return False
 

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException,Request
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import User
@@ -49,14 +49,17 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 
 @router.post("/register", response_model=dict)
-def register(request: RegisterRequest, db: Session = Depends(get_db)):
+def register(Regrequest: RegisterRequest, request:Request, db: Session = Depends(get_db)):
     # 如果注册时提供 user_id，说明是附属用户
         # 1️⃣ 验证邮箱验证码
-    if not verify_email_code(request.email, request.emailcode):
+    # print(Regrequest.email)
+    if not verify_email_code(Regrequest.email, Regrequest.emailcode,request):
         raise HTTPException(status_code=400, detail="注册失败：验证码错误")
+    else:
+        print("验证码验证成功")
     # 2️⃣ 如果提供 user_id，则绑定到已存在的用户
-    if request.user_id:
-        existing_user = db.query(User).filter(User.user_id == request.user_id).first()
+    if Regrequest.user_id:
+        existing_user = db.query(User).filter(User.user_id == Regrequest.user_id).first()
         if not existing_user:
             raise HTTPException(status_code=404, detail="绑定失败：用户 ID 不存在")
         
@@ -64,35 +67,36 @@ def register(request: RegisterRequest, db: Session = Depends(get_db)):
             raise HTTPException(status_code=400, detail="绑定失败：该用户已绑定邮箱")
 
         # 绑定邮箱并更新数据库
-        existing_user.email = request.email
+        existing_user.email = Regrequest.email
         existing_user.email_verified = True
-        existing_user.nickname = request.nickname
-        existing_user.realname = request.realname
-        # existing_user.address = request.address
-        # existing_user.company = request.company
-        existing_user.phone = request.phone
+        existing_user.nickname = Regrequest.nickname
+        existing_user.realname = Regrequest.realname
+        # existing_user.address = Regrequest.address
+        # existing_user.company = Regrequest.company
+        existing_user.phone = Regrequest.phone
         db.commit()
         db.refresh(existing_user)
         
         return {"message": "附属用户绑定成功", "user_id": existing_user.user_id, "email": existing_user.email}
     
-    if db.query(User).filter(User.email == request.email).first():
+    if db.query(User).filter(User.email == Regrequest.email).first():
         raise HTTPException(status_code=400, detail="注册失败：邮箱已被绑定")
 
+    print("开始注册")
     # 如果未提供 user_id 则自动分配 id
     user_id = generate_user_id()
     while db.query(User).filter(User.user_id == user_id).first():
         user_id = generate_user_id()  # 确保 user_id 唯一
     # 3️⃣ 存储用户信息（密码加密）
-    hashed_password = hash_password(request.password)
+    hashed_password = hash_password(Regrequest.password)
     new_user = User(
         user_id=user_id,
-        nickname=request.nickname,
-        realname=request.realname,
-        address=request.address,
-        company=request.company,
-        phone=request.phone,
-        email=request.email,
+        nickname=Regrequest.nickname,
+        realname=Regrequest.realname,
+        address=Regrequest.address,
+        company=Regrequest.company,
+        phone=Regrequest.phone,
+        email=Regrequest.email,
         password=hashed_password,
         email_verified=True,
         is_sub_user = False,
@@ -109,9 +113,10 @@ def register(request: RegisterRequest, db: Session = Depends(get_db)):
 # 🔹 发送验证码 API
 # 🔹 发送验证码 API（使用 JSON）
 @router.post("/send-email", response_model=dict)
-def send_email(request: EmailRequest):
+async def send_email(email_request: EmailRequest,request: Request):
     try:
-        generate_email_code(request.email)
+        print(email_request.email)
+        await generate_email_code(email_request.email,request)
         return {"message": "验证码已发送"}
     except Exception:
         raise HTTPException(status_code=500, detail="验证码发送失败")
@@ -121,18 +126,18 @@ def send_email(request: EmailRequest):
 
 # 🔹 用户登录 API（使用 JSON）
 @router.post("/login", response_model=dict)
-def login(request: UserLoginRequest, db: Session = Depends(get_db)):
+def login(login_request: UserLoginRequest,db: Session = Depends(get_db)):
     # 1️⃣ 检查用户是否存在
-    user = db.query(User).filter(User.email == request.identifier).first()
+    user = db.query(User).filter(User.email == login_request.identifier).first()
     if not user:
-        user = db.query(User).filter(User.user_id == request.identifier).first()
+        user = db.query(User).filter(User.user_id == login_request.identifier).first()
     if not user:
         raise HTTPException(status_code=400, detail="登录失败：用户不存在")
     # 检查是否绑定邮箱
     if not user.email_verified:
         raise HTTPException(status_code=400, detail="登录失败：邮箱未验证")
     # 2️⃣ 验证密码
-    if not verify_password(request.password, user.password):
+    if not verify_password(login_request.password, user.password):
         raise HTTPException(status_code=400, detail="登录失败：密码错误")
 
     # 3️⃣ 生成 JWT 令牌

@@ -17,7 +17,7 @@ from typing import List
 from app.database import get_db
 from app.models import PDFItem
 
-from fastapi_limiter import FastAPILimiter
+# from fastapi_limiter import FastAPILimiter
 from fastapi_limiter.depends import RateLimiter
 
 router = APIRouter(prefix="/item", tags=["Item"])
@@ -144,11 +144,15 @@ def batch_preview(request: BatchPreviewRequest, db: Session = Depends(get_db)):
 # 🔹 过滤商品 API
 @router.get("/filter", response_model=List[int],dependencies=[Depends(RateLimiter(times=7, seconds=10))])
 def filter_items(
-    category1: str = Query(..., description="一级分类"),
+    category1: str = Query(None, description="一级分类"),
     category2: str = Query(None, description="二级分类，可选"),
     db: Session = Depends(get_db)
 ):
     # 1️⃣ 基础查询（category1 必填）
+    # 如何category1 为空，返回所有的商品
+    if not category1:
+        items = db.query(PDFItem).all()
+        return [item.id for item in items]
     query = db.query(PDFItem).filter(PDFItem.category1 == category1)
 
     # 2️⃣ 如果提供了 category2，则进一步筛选

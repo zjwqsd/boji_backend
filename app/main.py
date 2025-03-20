@@ -1,11 +1,11 @@
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
-from app.routes import  item
-from fastapi import FastAPI
-from app.routes import auth,admin
+# from app.routes import  item
+# from fastapi import FastAPI
+from app.routes import auth,admin,item
 from app.database import engine, Base
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi import FastAPI
+# from fastapi import FastAPI
 from fastapi_limiter import FastAPILimiter
 from fastapi_limiter.depends import RateLimiter
 import redis.asyncio as redis 
@@ -17,11 +17,18 @@ async def startup():
     try:
         # 🔹 创建异步 Redis 连接
         redis_client = redis.Redis.from_url("redis://localhost:6379", encoding="utf-8", decode_responses=True)
+        app.state.redis = redis_client  # 存储到 FastAPI 的 state
         await FastAPILimiter.init(redis_client)
         print("✅ Redis 连接成功")
     except Exception as e:
         print(f"⚠️ Redis 连接失败，限流功能将禁用: {e}")
-
+        
+@app.on_event("shutdown")
+async def shutdown():
+    redis_client = app.state.redis
+    if redis_client:
+        await redis_client.close()
+        print("🛑 Redis 连接已关闭")
 # 添加 CORS 允许跨域
 app.add_middleware(
     CORSMiddleware,

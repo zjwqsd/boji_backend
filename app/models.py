@@ -5,6 +5,8 @@ from sqlalchemy import Column, Integer, String, Float, ForeignKey
 from sqlalchemy.orm import relationship
 from app.database import Base
 from datetime import datetime, timedelta
+from sqlalchemy import Column, Integer, ForeignKey, Boolean, DateTime, func
+from sqlalchemy.orm import relationship
 
 
 class SuperAdmin(Base):
@@ -28,11 +30,11 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)  # 数据库ID
     user_id = Column(String(50), unique=True, nullable=True)  # 可由系统或管理员分配的唯一 ID
     nickname = Column(String(100), nullable=True)  # 必填昵称，不唯一
-    realname = Column(String(100), unique=True, nullable=False)  # 用户真实姓名，选填
+    realname = Column(String(100),  nullable=True)  # 用户真实姓名，选填
     address = Column(String(255), nullable=True)  # 可选地址
     company = Column(String(255), nullable=True)  # 可选公司
     phone = Column(String(20), nullable=True)  # 可选电话
-    email = Column(String(100), unique=True, nullable=False)  # 必须有邮箱，唯一
+    email = Column(String(100), unique=True, nullable=True)  # 必须有邮箱，唯一
     password = Column(String(255), nullable=False)  # 存储哈希密码
     email_verified = Column(Boolean, default=False)  # 邮箱是否验证
     is_sub_user = Column(Boolean, default=False)  # 是否为附属用户
@@ -67,3 +69,14 @@ class SuperAdminSession(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     expires_at = Column(DateTime, default=lambda: datetime.utcnow() + timedelta(minutes=10))  # 10 分钟有效
 
+class UserPDFPermission(Base):
+    __tablename__ = "user_pdf_permissions"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)  # 关联用户
+    pdf_id = Column(Integer, ForeignKey("pdf_items.id"), nullable=False)  # 关联 PDFItem
+    has_access = Column(Boolean, default=True)  # 是否有访问权限
+    created_at = Column(DateTime, default=func.now())  # 记录创建时间
+
+    user = relationship("User", backref="pdf_permissions")
+    pdf_item = relationship("PDFItem", backref="user_permissions")
