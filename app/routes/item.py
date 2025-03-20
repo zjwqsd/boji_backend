@@ -226,10 +226,12 @@ def search_pdfs(query: str = Query(..., min_length=1), db: Session = Depends(get
     search_term = f"%{query}%"
     results = db.query(PDFItem).filter(
         or_(
+            PDFItem.custom_id.ilike(search_term),
             PDFItem.title.ilike(search_term),
-            PDFItem.category1.ilike(search_term),
-            PDFItem.category2.ilike(search_term),
-            PDFItem.keywords.ilike(search_term)
+            PDFItem.keywords.ilike(search_term),
+            PDFItem.description.ilike(search_term),
+            PDFItem.shape.ilike(search_term),
+            PDFItem.year.ilike(search_term),
         )
     ).all()
 
