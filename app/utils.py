@@ -28,7 +28,7 @@ async def generate_email_code(email: str, request: Request) -> bool:
     # email_verification_codes[email] = code
     redis_client = await get_redis(request)
     await redis_client.setex(f"email_code:{email}", 300, code)  # 5 分钟后自动删除
-
+    
     subject = "【您的验证码】请勿泄露"
     content = f"""
     <html>

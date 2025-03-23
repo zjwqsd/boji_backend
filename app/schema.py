@@ -28,6 +28,11 @@ class UserPDFPermissionCreate(BaseModel):
     pdf_id: int
     has_access: Optional[bool] = True  # 默认允许访问
 
+class UserCategoryPermissionCreate(BaseModel):
+    user_id: int
+    category_id: int
+    has_access: Optional[bool] = True  # 默认允许访问
+
 class UserPDFPermissionResponse(BaseModel):
     id: int
     user_id: int

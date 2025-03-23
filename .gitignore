@@ -1,6 +1,8 @@
 uploads/
+covers/
 # 忽略所有 pyc 文件
 *.pyc
 tests/
+
 .env
 config.ini

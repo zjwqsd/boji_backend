@@ -106,7 +106,7 @@ def get_user_permissions(user_id: int, db: Session = Depends(get_db)):
 
     return permissions
 
-@router.delete("/permissions/{permission_id}")
+@router.delete("/delpermissions/{permission_id}")
 def remove_pdf_permission(permission_id: int, db: Session = Depends(get_db)):
     permission = db.query(UserPDFPermission).filter(UserPDFPermission.id == permission_id).first()
     if not permission:

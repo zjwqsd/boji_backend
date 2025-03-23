@@ -16,13 +16,13 @@ class SuperAdmin(Base):
     username = Column(String(50), unique=True, nullable=False)
     password = Column(String(255), nullable=False)  # 存储哈希后的密码
 
-class DataItem(Base):
-    __tablename__ = "data_items"
+# class DataItem(Base):
+#     __tablename__ = "data_items"
 
-    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
-    name = Column(String(255), index=True)
-    description = Column(String(255))
-    price = Column(Float)
+#     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+#     name = Column(String(255), index=True)
+#     description = Column(String(255))
+#     price = Column(Float)
 
 class User(Base):
     __tablename__ = "users"
@@ -51,14 +51,18 @@ class PDFItem(Base):
     title = Column(String(255), nullable=False)
     category1 = Column(String(100), nullable=False)  # 一级分类
     category2 = Column(String(100), nullable=False)  # 二级分类
-    category3 = Column(String(100), nullable=False)  # 三级分类
-    keywords = Column(String(255), nullable=False)
+    
+    household_name = Column(String(100), ForeignKey("households.name"), nullable=True)
+    household = relationship("Household", backref="pdf_items", primaryjoin="PDFItem.household_name==Household.name")
+
+    location = Column(String(255), nullable=False)
     description = Column(String(255), nullable=False)
     # year = Column(Integer, nullable=True)
     shape = Column(String(100), nullable=False)
     year = Column(String(100), nullable=False)
     price = Column(Float, nullable=False)
     pdf_path = Column(String(255), nullable=False)  # PDF 文件存储路径
+    cover_path = Column(String(255), nullable=True)  # 封面图片存储路径
 
 class SuperAdminSession(Base):
     __tablename__ = "super_admin_sessions"
@@ -80,3 +84,26 @@ class UserPDFPermission(Base):
 
     user = relationship("User", backref="pdf_permissions")
     pdf_item = relationship("PDFItem", backref="user_permissions")
+
+class UserCategoryPermission(Base):
+    __tablename__ = "user_category_permissions"
+    # 仅仅记录对三种一级分类的权限
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)  # 关联用户
+    access1 = Column(Boolean, default=True)  
+    access2 = Column(Boolean, default=True)  
+    access3 = Column(Boolean, default=True)  
+    created_at = Column(DateTime, default=func.now())  # 记录创建时间
+
+    user = relationship("User", backref="category_permissions")
+    
+    
+class Household(Base):
+    __tablename__ = "households"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(100), nullable=False,unique=True)
+    code = Column(String(50), nullable=False, unique=True)
+    description = Column(String(255), nullable=True)
+
+    category2 = Column(String(100), nullable=False)  # 指定归属的二级分类
