@@ -271,7 +271,7 @@ def search_pdfs(query: str = Query(..., min_length=1), db: Session = Depends(get
 
     return [pdf.id for pdf in results]
 
-@router.post("/create_household")
+@router.post("/household/create")
 def create_household(request:HouseholdRequest,db: Session = Depends(get_db),admin=Depends(super_admin_auth)):
     household = Household(
         name=request.name,
@@ -285,26 +285,42 @@ def create_household(request:HouseholdRequest,db: Session = Depends(get_db),admi
     return {"message":"归户创建成功","household":household}
 
 
-@router.get("/households/{category2}")
-def get_households(category2: str, db: Session = Depends(get_db)):
-    #如何category2 为空，返回所有的归户
-    if not category2:
-        households = db.query(Household).all()
-        return [{"name":household.name,"code":household.code,"description":household.description} for household in households]
-    # 从 householde 表中查询 category2 的所有归户
-    households = db.query(Household).filter(Household.category2 == category2).all()
+# @router.get("/households/{category2}")
+# def get_households(category2: str, db: Session = Depends(get_db)):
+#     #如何category2 为空，返回所有的归户
+#     if not category2:
+#         households = db.query(Household).all()
+#         return [{"name":household.name,"code":household.code,"description":household.description} for household in households]
+#     # 从 householde 表中查询 category2 的所有归户
+#     households = db.query(Household).filter(Household.category2 == category2).all()
+#     return [{"name":household.name,"code":household.code,"description":household.description} for household in households]
+
+# 返回所有的户名信息
+@router.get("/household/all")
+def get_all_households(db: Session = Depends(get_db)):
+    households = db.query(Household).all()
     return [{"name":household.name,"code":household.code,"description":household.description} for household in households]
 
-#从户名得到归户
+# #从户名得到归户
+# @router.get("/household/{name}")
+# def get_household(name: str, db: Session = Depends(get_db)):
+#     household = db.query(Household).filter(Household.name == name).first()
+#     if not household:
+#         raise HTTPException(status_code=404, detail="归户不存在")
+#     return {"name":household.name,"code":household.code,"description":household.description}
+
+# 从户名得到条目id列表
 @router.get("/household/{name}")
 def get_household(name: str, db: Session = Depends(get_db)):
     household = db.query(Household).filter(Household.name == name).first()
     if not household:
         raise HTTPException(status_code=404, detail="归户不存在")
-    return {"name":household.name,"code":household.code,"description":household.description}
-    
+    items = db.query(PDFItem).filter(PDFItem.household_name == name).all()
+    return [item.id for item in items]
+
+
 #更新归户信息
-@router.put("/update_household")
+@router.put("/household/update")
 def update_household(request: HouseholdRequest, db: Session = Depends(get_db),admin=Depends(super_admin_auth)):
     household = db.query(Household).filter(Household.name==request.name).first()
     if not household:
