@@ -228,7 +228,7 @@ def update_item(
             "category1": item.category1,
             "category2": item.category2,
             # "category3": item.category3,
-            "household_name": item.household_name,
+            "household_id": item.household_id,
             "location": item.location,
             "description": item.description,
             "shape": item.shape,
@@ -283,6 +283,14 @@ def create_household(request:HouseholdRequest,db: Session = Depends(get_db),admi
     db.commit()
     db.refresh(household)
     return {"message":"归户创建成功","household":household}
+@router.delete("/household/delete/{id}")
+def delete_household(id:int,db: Session = Depends(get_db),admin=Depends(super_admin_auth)):
+    household = db.query(Household).filter(Household.id == id).first()
+    if not household:
+        raise HTTPException(status_code=404, detail="归户不存在")
+    db.delete(household)
+    db.commit()
+    return {"message":"归户已删除","household":household}
 
 
 # @router.get("/households/{category2}")
@@ -299,7 +307,7 @@ def create_household(request:HouseholdRequest,db: Session = Depends(get_db),admi
 @router.get("/household/all")
 def get_all_households(db: Session = Depends(get_db)):
     households = db.query(Household).all()
-    return [{"name":household.name,"code":household.code,"description":household.description} for household in households]
+    return [{"id":household.id,"name":household.name,"code":household.code,"description":household.description} for household in households]
 
 # #从户名得到归户
 # @router.get("/household/{name}")
@@ -310,28 +318,28 @@ def get_all_households(db: Session = Depends(get_db)):
 #     return {"name":household.name,"code":household.code,"description":household.description}
 
 # 从户名得到条目id列表
-@router.get("/household/{name}")
-def get_household(name: str, db: Session = Depends(get_db)):
-    household = db.query(Household).filter(Household.name == name).first()
-    if not household:
-        raise HTTPException(status_code=404, detail="归户不存在")
-    items = db.query(PDFItem).filter(PDFItem.household_name == name).all()
-    return [item.id for item in items]
+# @router.get("/household/{name}")
+# def get_household(name: str, db: Session = Depends(get_db)):
+#     household = db.query(Household).filter(Household.name == name).first()
+#     if not household:
+#         raise HTTPException(status_code=404, detail="归户不存在")
+#     items = db.query(PDFItem).filter(PDFItem.household_name == name).all()
+#     return [item.id for item in items]
 
 
 #更新归户信息
-@router.put("/household/update")
-def update_household(request: HouseholdRequest, db: Session = Depends(get_db),admin=Depends(super_admin_auth)):
-    household = db.query(Household).filter(Household.name==request.name).first()
+@router.put("/household/update/{id}")
+def update_household(id:int,request: HouseholdRequest, db: Session = Depends(get_db),admin=Depends(super_admin_auth)):
+    household = db.query(Household).filter(Household.id==id).first()
     if not household:
         raise HTTPException(status_code=404, detail="归户不存在")
-    # 更新除了户名以外的信息
+    # 使用 request 的数据更新
     update_data = request.dict(exclude_unset=True)
     for key, value in update_data.items():
         setattr(household, key, value)
     # 如果更新了category2, 那么更新 PDF 表项中该户名对应的 category2
     if update_data.get("category2"):
-        db.query(PDFItem).filter(PDFItem.household_name == request.name).update({"category2":request.category2})
+        db.query(PDFItem).filter(PDFItem.household_id == id).update({"category2":request.category2})
     db.commit()
     db.refresh(household)
     return {"message":"归户信息已更新","household":household}

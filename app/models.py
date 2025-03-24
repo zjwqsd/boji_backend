@@ -52,7 +52,8 @@ class PDFItem(Base):
     category1 = Column(String(100), nullable=False)  # 一级分类
     category2 = Column(String(100), nullable=False)  # 二级分类
     
-    household_name = Column(String(100), ForeignKey("households.name"), nullable=True)
+    # household_name = Column(String(100), ForeignKey("households.name"), nullable=True)
+    household_id = Column(Integer, ForeignKey("households.id"), nullable=True)
     household = relationship("Household", backref="pdf_items", primaryjoin="PDFItem.household_name==Household.name")
 
     location = Column(String(255), nullable=False)
