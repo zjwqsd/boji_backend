@@ -7,7 +7,7 @@ from app.database import get_db
 from app.models import PDFItem, Household
 from typing import List, Optional
 from pydantic import BaseModel
-
+from collections import defaultdict
 import shutil
 import os
 from fastapi import APIRouter, Depends, Query
@@ -16,7 +16,7 @@ from sqlalchemy import or_
 from typing import List
 from app.database import get_db
 from app.models import PDFItem
-
+from app.schema import HouseholdSchema
 # from fastapi_limiter import FastAPILimiter
 from fastapi_limiter.depends import RateLimiter
 
@@ -38,7 +38,8 @@ class UpdateItemRequest(BaseModel):
     category1: Optional[str] = None
     category2: Optional[str] = None
     # category3: Optional[str] = None
-    household_name: Optional[str] = None
+    # household_name: Optional[str] = None
+    household_id: Optional[int] = None
     location: Optional[str] = None
     description: Optional[str] = None
     shape: Optional[str] = None
@@ -77,7 +78,8 @@ def upload_item(
     category1: str = Form(...),
     category2: str = Form(...),
     # category3: str = Form(...),
-    household_name: str = Form(None),
+    # household_name: str = Form(None),
+    household_id: int = Form(None),
     location: str = Form(...),
     description: str = Form(...),
     shape: str = Form(...),
@@ -108,12 +110,10 @@ def upload_item(
         with open(cover_path, "wb") as buffer:
             shutil.copyfileobj(cover.file, buffer)
     # 检查household是否存在
-    household_id = None
-    if household_name:
-        household_obj = db.query(Household).filter(Household.name == household_name).first()
+    if household_id:
+        household_obj = db.query(Household).filter(Household.id == household_id).first()
         if not household_obj:
             raise HTTPException(status_code=404, detail="归户不存在")
-        household_id = household_obj.id
     # 4️⃣ 存入数据库
     new_pdf = PDFItem(
         custom_id=custom_id,
@@ -121,7 +121,7 @@ def upload_item(
         category1=category1,
         category2=category2,
         # category3=category3,
-        household_name=household_name,
+        household_id=household_id,
         location=location,
         description=description,
         shape=shape,
@@ -158,7 +158,7 @@ def batch_preview(request: BatchPreviewRequest, db: Session = Depends(get_db)):
             "category1": item.category1,
             "category2": item.category2,
             # "category3": item.category3,
-            "household_name": item.household_name,
+            "household_id": item.household_id,
             "location": item.location,
             "description": item.description,
             "shape": item.shape,
@@ -206,8 +206,8 @@ def update_item(
     if not item:
         raise HTTPException(status_code=404, detail="商品不存在")
     # 检查household是否存在
-    if request.household_name:
-        household_obj = db.query(Household).filter(Household.name == request.household_name).first()
+    if request.household_id:
+        household_obj = db.query(Household).filter(Household.id == request.household_id).first()
         if not household_obj:
             raise HTTPException(status_code=404, detail="归户不存在")
     # 2️⃣ 不能修改 `custom_id` 和 `pdf_path`
@@ -283,6 +283,7 @@ def create_household(request:HouseholdRequest,db: Session = Depends(get_db),admi
     db.commit()
     db.refresh(household)
     return {"message":"归户创建成功","household":household}
+
 @router.delete("/household/delete/{id}")
 def delete_household(id:int,db: Session = Depends(get_db),admin=Depends(super_admin_auth)):
     household = db.query(Household).filter(Household.id == id).first()
@@ -305,9 +306,9 @@ def delete_household(id:int,db: Session = Depends(get_db),admin=Depends(super_ad
 
 # 返回所有的户名信息
 @router.get("/household/all")
-def get_all_households(db: Session = Depends(get_db)):
+def get_all_households(db: Session = Depends(get_db),admin=Depends(super_admin_auth)):
     households = db.query(Household).all()
-    return [{"id":household.id,"name":household.name,"code":household.code,"description":household.description} for household in households]
+    return [HouseholdSchema.from_orm(household) for household in households]
 
 # #从户名得到归户
 # @router.get("/household/{name}")
@@ -343,5 +344,15 @@ def update_household(id:int,request: HouseholdRequest, db: Session = Depends(get
     db.commit()
     db.refresh(household)
     return {"message":"归户信息已更新","household":household}
+
+# 得到归户的所有条目,返回条目id列表
+@router.get("/household/filter/{id}")
+def get_household_items(id: int, db: Session = Depends(get_db)):
+    household = db.query(Household).filter(Household.id == id).first()
+    if not household:
+        raise HTTPException(status_code=404, detail="归户不存在")
+    items = db.query(PDFItem).filter(PDFItem.household_id == id).all()
+    return [item.id for item in items]
+
 
 

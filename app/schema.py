@@ -42,3 +42,16 @@ class UserPDFPermissionResponse(BaseModel):
 
     class Config:
         from_attributes = True  # 兼容 SQLAlchemy ORM
+        
+class HouseholdSchema(BaseModel):
+    id: int
+    name: str
+    code: str
+    description: Optional[str]
+
+    class Config:
+        orm_mode = True
+
+class CategoryGroupSchema(BaseModel):
+    category2: str
+    households: List[HouseholdSchema]
