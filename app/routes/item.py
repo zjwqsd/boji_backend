@@ -54,9 +54,6 @@ class HouseholdRequest(BaseModel):
 
 
 
-
-
-
 # 🔹 需要超级用户权限的依赖项
 # 🔹 依赖项：检查是否是超级用户
 def super_admin_auth(authorization: str = Header(...)):
@@ -160,10 +157,11 @@ def batch_preview(request: BatchPreviewRequest, db: Session = Depends(get_db)):
             # "category3": item.category3,
             "household_id": item.household_id,
             "location": item.location,
-            "description": item.description,
-            "shape": item.shape,
+            # "description": item.description,
+            # "shape": item.shape,
             "year": item.year,
-            "price": item.price
+            "price": item.price,
+            # "cover": item.cover_path if item.cover_path else None,
         }
         for item in items
     ]
@@ -273,6 +271,14 @@ def search_pdfs(query: str = Query(..., min_length=1), db: Session = Depends(get
 
 @router.post("/household/create")
 def create_household(request:HouseholdRequest,db: Session = Depends(get_db),admin=Depends(super_admin_auth)):
+    # 检查name和code是否已经存在
+    household = db.query(Household).filter(Household.name == request.name).first()
+    if household:
+        raise HTTPException(status_code=400, detail="户名已存在")
+    household = db.query(Household).filter(Household.code == request.code).first()
+    if household:
+        raise HTTPException(status_code=400, detail="户号已存在")
+    
     household = Household(
         name=request.name,
         code=request.code,
@@ -294,39 +300,11 @@ def delete_household(id:int,db: Session = Depends(get_db),admin=Depends(super_ad
     return {"message":"归户已删除","household":household}
 
 
-# @router.get("/households/{category2}")
-# def get_households(category2: str, db: Session = Depends(get_db)):
-#     #如何category2 为空，返回所有的归户
-#     if not category2:
-#         households = db.query(Household).all()
-#         return [{"name":household.name,"code":household.code,"description":household.description} for household in households]
-#     # 从 householde 表中查询 category2 的所有归户
-#     households = db.query(Household).filter(Household.category2 == category2).all()
-#     return [{"name":household.name,"code":household.code,"description":household.description} for household in households]
-
 # 返回所有的户名信息
 @router.get("/household/all")
-def get_all_households(db: Session = Depends(get_db),admin=Depends(super_admin_auth)):
+def get_all_households(db: Session = Depends(get_db)):
     households = db.query(Household).all()
     return [HouseholdSchema.from_orm(household) for household in households]
-
-# #从户名得到归户
-# @router.get("/household/{name}")
-# def get_household(name: str, db: Session = Depends(get_db)):
-#     household = db.query(Household).filter(Household.name == name).first()
-#     if not household:
-#         raise HTTPException(status_code=404, detail="归户不存在")
-#     return {"name":household.name,"code":household.code,"description":household.description}
-
-# 从户名得到条目id列表
-# @router.get("/household/{name}")
-# def get_household(name: str, db: Session = Depends(get_db)):
-#     household = db.query(Household).filter(Household.name == name).first()
-#     if not household:
-#         raise HTTPException(status_code=404, detail="归户不存在")
-#     items = db.query(PDFItem).filter(PDFItem.household_name == name).all()
-#     return [item.id for item in items]
-
 
 #更新归户信息
 @router.put("/household/update/{id}")

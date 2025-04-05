@@ -54,7 +54,8 @@ class PDFItem(Base):
     
     # household_name = Column(String(100), ForeignKey("households.name"), nullable=True)
     household_id = Column(Integer, ForeignKey("households.id"), nullable=True)
-    household = relationship("Household", backref="pdf_items", primaryjoin="PDFItem.household_name==Household.name")
+    # household = relationship("Household", backref="pdf_items", primaryjoin="PDFItem.household_name==Household.name")
+    household = relationship("Household", backref="pdf_items")
 
     location = Column(String(255), nullable=False)
     description = Column(String(255), nullable=False)

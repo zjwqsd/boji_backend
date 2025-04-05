@@ -47,10 +47,12 @@ class HouseholdSchema(BaseModel):
     id: int
     name: str
     code: str
+    category2: str
     description: Optional[str]
 
     class Config:
         orm_mode = True
+        from_attributes = True
 
 class CategoryGroupSchema(BaseModel):
     category2: str
